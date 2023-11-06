@@ -5,6 +5,7 @@
     <vendor email="androidlover5842@gmail.com" url="https://github.com/androidlover5842">androidlover5842</vendor>
     <description>Used to generate databing getter and setter for kotlin data class</description>
     <depends>com.intellij.modules.platform</depends>
+    <depends optional="true">org.jetbrains.kotlin</depends>
 
     <extensions defaultExtensionNs="com.intellij">
     </extensions>
