@@ -75,10 +75,14 @@ class generator : AnAction() {
                         val result =dialog.showAndGet()
                         if (result && dialog.getSelectedProperties().isNotEmpty()) {
                             WriteCommandAction.runWriteCommandAction(e.project) {
-                                dialog.getSelectedProperties()
-                                    .onEachIndexed { index, (propertyName, propertyType) ->
-                                        if (propertyName !in existingPropertyNames) {
-                                            val functionText = """
+                                val selectedItems=dialog.getSelectedProperties()
+                                val keys = selectedItems.keys.toList()
+                                val size=selectedItems.size-1
+                                for (index in (size) downTo 0) {
+                                    val propertyName=keys[index]
+                                    val propertyType=selectedItems[propertyName]
+                                    if (propertyName !in existingPropertyNames) {
+                                        val functionText = """
                                         var $propertyName:$propertyType
                                         @Bindable get() = _$propertyName
                                         set(value) {
@@ -87,13 +91,13 @@ class generator : AnAction() {
                                                 }
                                         """
 
-                                            val functionElement = psiFactory.createProperty(functionText)
-                                            if (index != 0)
-                                                klass.addAfter(psiFactory.createNewLine(), klass.lBrace)
+                                        val functionElement = psiFactory.createProperty(functionText)
+                                        if (index != size)
+                                            klass.addAfter(psiFactory.createNewLine(), klass.lBrace)
 
-                                            klass.addAfter(functionElement, klass.lBrace)
-                                        }
+                                        klass.addAfter(functionElement, klass.lBrace)
                                     }
+                                }
                             }
                         }
                     }
@@ -161,7 +165,7 @@ class PropertySelectionDialog(private val availableProperties: Map<String,String
         return panel
     }
 
-    fun getSelectedProperties(): Map<String,String> {
+    fun getSelectedProperties(): MutableMap<String,String> {
         selectedProperties.clear()
         for (checkbox in checkboxes) {
             if (checkbox.isSelected) {
