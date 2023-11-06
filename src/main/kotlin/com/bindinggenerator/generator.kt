@@ -1,24 +1,25 @@
 package com.bindinggenerator
 
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementVisitor
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
+import java.awt.event.ItemEvent
 import javax.swing.BoxLayout
 import javax.swing.JCheckBox
 import javax.swing.JComponent
 import javax.swing.JPanel
-import com.intellij.notification.Notification
-import com.intellij.notification.NotificationType
-import com.intellij.notification.Notifications
-import com.intellij.openapi.project.Project
 
 class generator : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
@@ -43,8 +44,6 @@ class generator : AnAction() {
 
                         if (element is KtClassBody) {
 
-                            // Create and show the property selection dialog
-
                             val klass = element
                             val existingPropertyNames = klass.declarations.filterIsInstance<KtProperty>()
                                 .map { it.name }.toSet()
@@ -58,11 +57,12 @@ class generator : AnAction() {
                                 showNoPropertiesNotification(e.project)
                             else {
                                 val dialog = PropertySelectionDialog(newMap)
-                                dialog.show()
-                                dialog.getSelectedProperties()
-                                    .onEachIndexed { index, (propertyName, propertyType) ->
-                                        if (propertyName !in existingPropertyNames) {
-                                            val functionText = """
+                                val result =dialog.showAndGet()
+                                if (result) {
+                                    dialog.getSelectedProperties()
+                                        .onEachIndexed { index, (propertyName, propertyType) ->
+                                            if (propertyName !in existingPropertyNames) {
+                                                val functionText = """
                                         var $propertyName:$propertyType
                                         @Bindable get() = _$propertyName
                                         set(value) {
@@ -71,13 +71,14 @@ class generator : AnAction() {
                                                 }
                                         """
 
-                                            val functionElement = psiFactory.createProperty(functionText)
-                                            if (index != 0)
-                                                klass.addAfter(psiFactory.createNewLine(), klass.lBrace)
+                                                val functionElement = psiFactory.createProperty(functionText)
+                                                if (index != 0)
+                                                    klass.addAfter(psiFactory.createNewLine(), klass.lBrace)
 
-                                            klass.addAfter(functionElement, klass.lBrace)
+                                                klass.addAfter(functionElement, klass.lBrace)
+                                            }
                                         }
-                                    }
+                                }
                             }
                             elementsMap.clear()
                         }
@@ -125,12 +126,26 @@ class generator : AnAction() {
         override fun createCenterPanel(): JComponent? {
             val panel = JPanel()
             panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+            val selectAllCheckbox = JCheckBox("Select All")
+            selectAllCheckbox.addItemListener { e ->
+                if (e.stateChange == ItemEvent.SELECTED) {
+                    for (checkbox in checkboxes) {
+                        checkbox.isSelected = true
+                    }
+                } else if (e.stateChange == ItemEvent.DESELECTED) {
+                    for (checkbox in checkboxes) {
+                        checkbox.isSelected = false
+                    }
+                }
+            }
+            panel.add(selectAllCheckbox)
 
             for (property in availableProperties) {
                 val checkbox = JCheckBox(property.key)
                 checkboxes.add(checkbox)
                 panel.add(checkbox)
             }
+            selectAllCheckbox.isSelected=true
 
             return panel
         }
