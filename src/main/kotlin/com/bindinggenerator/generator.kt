@@ -15,7 +15,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementVisitor
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
-import java.awt.event.ItemEvent
 import javax.swing.BoxLayout
 import javax.swing.JCheckBox
 import javax.swing.JComponent
@@ -27,38 +26,41 @@ class generator : AnAction() {
         val editor = e.getData(CommonDataKeys.EDITOR)
 
         if (psiFile != null && editor != null) {
-            WriteCommandAction.runWriteCommandAction(e.project) {
-                val document = PsiDocumentManager.getInstance(psiFile.project).getDocument(psiFile)
-                val psiFactory = KtPsiFactory(psiFile)
-                val elementsMap = linkedMapOf<String, String>()
+            val document = PsiDocumentManager.getInstance(psiFile.project).getDocument(psiFile)
+            val psiFactory = KtPsiFactory(psiFile)
+            val elementsMap = linkedMapOf<String, String>()
 
-                psiFile.accept(object : PsiRecursiveElementVisitor() {
-                    override fun visitElement(element: PsiElement) {
-                        if (element is KtClass) {
-                            val classBody = element.getBody()
-                            if (classBody == null) {
-                                val emptyBody = psiFactory.createEmptyClassBody()
+            psiFile.accept(object : PsiRecursiveElementVisitor() {
+                override fun visitElement(element: PsiElement) {
+                    if (element is KtClass) {
+                        val classBody = element.getBody()
+                        if (classBody == null) {
+                            val emptyBody = psiFactory.createEmptyClassBody()
+                            WriteCommandAction.runWriteCommandAction(e.project) {
                                 element.add(emptyBody)
                             }
+
+                        }
+                    }
+
+                    if (element is KtClassBody) {
+
+                        val klass = element
+                        val existingPropertyNames = klass.declarations.filterIsInstance<KtProperty>()
+                            .map { it.name }.toSet()
+                        val newMap= mutableMapOf<String,String>()
+                        elementsMap.forEach {
+                            if (it.key !in existingPropertyNames)
+                                newMap[it.key]=it.value
                         }
 
-                        if (element is KtClassBody) {
-
-                            val klass = element
-                            val existingPropertyNames = klass.declarations.filterIsInstance<KtProperty>()
-                                .map { it.name }.toSet()
-                            val newMap= mutableMapOf<String,String>()
-                            elementsMap.forEach {
-                                if (it.key !in existingPropertyNames)
-                                    newMap[it.key]=it.value
-                            }
-
-                            if (newMap.isEmpty())
-                                showNoPropertiesNotification(e.project)
-                            else {
-                                val dialog = PropertySelectionDialog(newMap)
-                                val result =dialog.showAndGet()
-                                if (result) {
+                        if (newMap.isEmpty())
+                            showNoPropertiesNotification(e.project)
+                        else {
+                            val dialog = PropertySelectionDialog(newMap)
+                            val result =dialog.showAndGet()
+                            if (result && dialog.getSelectedProperties().isNotEmpty()) {
+                                WriteCommandAction.runWriteCommandAction(e.project) {
                                     dialog.getSelectedProperties()
                                         .onEachIndexed { index, (propertyName, propertyType) ->
                                             if (propertyName !in existingPropertyNames) {
@@ -80,29 +82,31 @@ class generator : AnAction() {
                                         }
                                 }
                             }
-                            elementsMap.clear()
                         }
+                        elementsMap.clear()
+                    }
 
-                        if (element is KtParameter && element.hasModifier(KtTokens.PRIVATE_KEYWORD)) {
-                            val name = element.name?.replace("_", "")
-                            val type = element.typeReference?.text
-                            if (name != null && type != null) {
-                                if (element.text.contains("private var")) {
-                                    elementsMap[name] = type
-                                }
+                    if (element is KtParameter && element.hasModifier(KtTokens.PRIVATE_KEYWORD)) {
+                        val name = element.name?.replace("_", "")
+                        val type = element.typeReference?.text
+                        if (name != null && type != null) {
+                            if (element.text.contains("private var")) {
+                                elementsMap[name] = type
                             }
                         }
-
-                        super.visitElement(element)
                     }
-                })
 
+                    super.visitElement(element)
+                }
+            })
+            WriteCommandAction.runWriteCommandAction(e.project) {
                 if (document != null) {
                     FileDocumentManager.getInstance().saveDocument(document)
                     PsiDocumentManager.getInstance(psiFile.project).commitDocument(document)
                 }
             }
         }
+
     }
     private fun showNoPropertiesNotification(project: Project?) {
         val notification = Notification(
@@ -117,36 +121,30 @@ class generator : AnAction() {
     class PropertySelectionDialog(private val availableProperties: Map<String,String>) : DialogWrapper(true) {
         private val selectedProperties = mutableMapOf<String,String>()
         private val checkboxes = mutableListOf<JCheckBox>()
+        private val selectAllCheckbox = JCheckBox("Select All")
 
         init {
             title = "Select Properties to Add"
             init()
         }
 
-        override fun createCenterPanel(): JComponent? {
+        override fun createCenterPanel(): JComponent {
             val panel = JPanel()
             panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
-            val selectAllCheckbox = JCheckBox("Select All")
-            selectAllCheckbox.addItemListener { e ->
-                if (e.stateChange == ItemEvent.SELECTED) {
-                    for (checkbox in checkboxes) {
-                        checkbox.isSelected = true
-                    }
-                } else if (e.stateChange == ItemEvent.DESELECTED) {
-                    for (checkbox in checkboxes) {
-                        checkbox.isSelected = false
-                    }
-                }
+            selectAllCheckbox.addActionListener {
+                checkboxes.forEach { it.isSelected = selectAllCheckbox.isSelected }
             }
             panel.add(selectAllCheckbox)
 
             for (property in availableProperties) {
                 val checkbox = JCheckBox(property.key)
+                checkbox.isSelected=true
                 checkboxes.add(checkbox)
+                checkbox.addActionListener {  selectAllCheckbox.isSelected=checkboxes.all {newIT-> newIT.isSelected }}
                 panel.add(checkbox)
             }
-            selectAllCheckbox.isSelected=true
 
+            selectAllCheckbox.isSelected=true
             return panel
         }
 
