@@ -1,3 +1,5 @@
+fun properties(key: String) = providers.gradleProperty(key)
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.9.0"
@@ -11,28 +13,18 @@ repositories {
     mavenCentral()
 }
 
-// Configure Gradle IntelliJ Plugin
-// Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
 intellij {
-    version.set("2022.2.5")
-    type.set("IC") // Target IDE Platform
+    version=properties("platformVersion")
+    type=properties("platformType")
+    updateSinceUntilBuild.set(false)
 
     plugins.set(listOf("org.jetbrains.kotlin"))
 }
 
 tasks {
-    // Set the JVM compatibility versions
-    withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
-    }
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "17"
-    }
-
     patchPluginXml {
-        sinceBuild.set("222")
-        untilBuild.set("232.*")
+        version.set(properties("platformVersion"))
+        sinceBuild.set(properties("pluginSinceBuild"))
     }
 
     signPlugin {
