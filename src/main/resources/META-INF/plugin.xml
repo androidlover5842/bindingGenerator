@@ -1,0 +1,17 @@
+<idea-plugin>
+    <id>com.bindingGenerator.BindingGenerator</id>
+
+    <name>BindingGenerator</name>
+    <vendor email="androidlover5842@gmail.com" url="https://github.com/androidlover5842">androidlover5842</vendor>
+    <description>Used to generate databing getter and setter for kotlin data class</description>
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+    </extensions>
+
+    <actions>
+        <action id="bindinggenerator" class="com.bindinggenerator.generator" text="Binder">
+            <add-to-group group-id="GenerateGroup" anchor="first"/>
+        </action>
+    </actions>
+</idea-plugin>
