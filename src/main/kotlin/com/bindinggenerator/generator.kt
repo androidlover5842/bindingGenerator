@@ -88,7 +88,7 @@ class generator : AnAction() {
                                         @Bindable get() = _$propertyName
                                         set(value) {
                                                 _$propertyName = value
-                                                notifyPropertyChanged(BR.$propertyName)
+                                                notifyPropertyChanged(BR.${fixBool(propertyType,propertyName)})
                                                 }
                                         """
                                         var oldProperty:KtDeclaration?=null
