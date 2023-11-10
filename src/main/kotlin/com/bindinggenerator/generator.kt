@@ -65,7 +65,7 @@ class generator : AnAction() {
                         .map { it.name }.toSet()
                     val newMap= mutableMapOf<String,String>()
                     elementsMap.forEach {
-                        if (it.key !in existingPropertyNames)
+                        if (fixBool(it.value,it.key) !in existingPropertyNames)
                             newMap[it.key]=it.value
                     }
 
@@ -84,19 +84,29 @@ class generator : AnAction() {
                                     val propertyType=selectedItems[propertyName]
                                     if (propertyName !in existingPropertyNames) {
                                         val functionText = """
-                                        var ${if (propertyType=="Boolean")propertyName.replace("is","").decapitalize()else propertyName}:$propertyType
+                                        var ${fixBool(propertyType,propertyName)}:$propertyType
                                         @Bindable get() = _$propertyName
                                         set(value) {
                                                 _$propertyName = value
                                                 notifyPropertyChanged(BR.$propertyName)
                                                 }
                                         """
-
+                                        var oldProperty:KtDeclaration?=null
                                         val functionElement = psiFactory.createProperty(functionText)
-                                        if (index != size)
-                                            klass.addAfter(psiFactory.createNewLine(), klass.lBrace)
 
-                                        klass.addAfter(functionElement, klass.lBrace)
+                                        if (existingPropertyNames.isNotEmpty())
+                                            oldProperty = klass.declarations.firstOrNull {
+                                            it is KtProperty && it.name == existingPropertyNames.elementAt(existingPropertyNames.size-1)
+                                        }
+
+                                        if (oldProperty != null) {
+                                            klass.addAfter(functionElement, oldProperty)
+                                            klass.addAfter(psiFactory.createNewLine(), oldProperty)
+                                        } else {
+                                            // If the old property is not found, just add at the end
+                                            klass.addAfter(psiFactory.createNewLine(), klass.lBrace)
+                                            klass.addAfter(functionElement, klass.lBrace)
+                                        }
                                     }
                                 }
                             }
@@ -134,6 +144,9 @@ private fun showNoPropertiesNotification(project: Project?) {
         NotificationType.INFORMATION
     )
     Notifications.Bus.notify(notification, project)
+}
+private fun fixBool(propertyType:String?,propertyName:String):String{
+    return if (propertyType=="Boolean")propertyName.replace("is","").decapitalize() else propertyName
 }
 
 class PropertySelectionDialog(private val availableProperties: Map<String,String>) : DialogWrapper(true) {
