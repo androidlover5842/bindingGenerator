@@ -16,6 +16,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiRecursiveElementVisitor
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.lombok.utils.decapitalize
 import org.jetbrains.kotlin.psi.*
 import javax.swing.BoxLayout
 import javax.swing.JCheckBox
@@ -83,7 +84,7 @@ class generator : AnAction() {
                                     val propertyType=selectedItems[propertyName]
                                     if (propertyName !in existingPropertyNames) {
                                         val functionText = """
-                                        var $propertyName:$propertyType
+                                        var ${if (propertyType=="Boolean")propertyName.replace("is","").decapitalize()else propertyName}:$propertyType
                                         @Bindable get() = _$propertyName
                                         set(value) {
                                                 _$propertyName = value
@@ -105,11 +106,11 @@ class generator : AnAction() {
                 }
 
                 if (element is KtParameter && element.hasModifier(KtTokens.PRIVATE_KEYWORD)) {
-                    val name = element.name?.replace("_", "")
+                    var name = element.name?.replace("_", "")
                     val type = element.typeReference?.text
                     if (name != null && type != null && element.name?.startsWith("_")==true) {
                         if (element.text.contains("private var")) {
-                            elementsMap[name] = type
+                                elementsMap[name] = type
                         }
                     }
                 }
